@@ -20,3 +20,8 @@ Merge to main
 G/X: George/Xandra
 #: branch
 a: commit
+
+Switch 1: Spacebar (Move to Next Item)
+Switch 2: Left Arrow (Move to Previous Item)
+Switch 3: Enter (Select Item)
+Switch 4: Up Arrow (Move Back One Level)
