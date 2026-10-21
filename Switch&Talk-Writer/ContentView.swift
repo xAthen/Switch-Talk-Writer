@@ -17,6 +17,12 @@ struct ContentView: View {
     @State private var scrollHeight: CGFloat = 150
     @State private var space: CGFloat = 10
     @State private var txtSize: CGFloat = 60
+    @State private var activeRow = 0
+    @State private var activeCol = 0
+    @State private var currSection = 1 // 0 = text box, 1 = wordBank, 2 = student controls
+    @State private var inSect: Bool = true
+    @State private var inRow: Bool = true
+    @State private var inCol: Bool = true
     @State private var words = ["Students", "Type", "Here...", "\n", "Example", "Sentences", "Include", ".\n", "Hello", "I", "am", "Xandra", ".\n", "Hello", "I", "am", "George", ".\n", "The", "weather", "is", "nice", ".\n", "School", "was", "good", ".\n"]
     @State private var wordBank: [[String]] = [
         ["Alpha", "Bravo", "Charlie", "Delta", "Echo"],
@@ -25,6 +31,7 @@ struct ContentView: View {
         ["Papa", "Quebec", "Romeo", "Sierra", "Tango"],
         ["Uniform", "Victor", "Whiskey", "X-ray", ".\n"]
     ]
+    @State private var studentControls: [String] = ["Delete", "Read All", "Full Screen"]
     var body: some View {
         //KeyboardNavView {
             GeometryReader { geometry in
@@ -57,6 +64,20 @@ struct ContentView: View {
                                             ForEach(0..<wordBank.count, id: \.self) { rI in
                                                 HStack (spacing: space) {
                                                     ForEach(0..<wordBank[rI].count, id: \.self) { cI in
+                                                        if currSection == 1 && rI == activeRow && cI == activeCol {
+                                                            Button(action: {
+                                                                words.append(wordBank[rI][cI])
+                                                            }) {
+                                                                Text(wordBank[rI][cI])
+                                                                    .padding(3)
+                                                                    .multilineTextAlignment(.center)
+                                                                    .frame(maxWidth: .infinity)
+                                                                    .frame( height: geometry.size.height * 0.145)
+                                                                    .background(RoundedRectangle(cornerRadius: 10)
+                                                                        .stroke(Color .black, lineWidth: 3)
+                                                                        .fill(Color(red: 190/255, green: 190/255, blue: 190/255)))
+                                                            }.accessibilityLabel("Row \(rI + 1), Column \(cI + 1): \(wordBank[rI][cI])")
+                                                        } else {
                                                         Button(action: {
                                                             words.append(wordBank[rI][cI])
                                                         }) {
@@ -65,8 +86,11 @@ struct ContentView: View {
                                                                 .multilineTextAlignment(.center)
                                                                 .frame(maxWidth: .infinity)
                                                                 .frame( height: geometry.size.height * 0.145)
-                                                                .background(RoundedRectangle(cornerRadius: 10).stroke(Color .black, lineWidth: 3))
+                                                                .background(RoundedRectangle(cornerRadius: 10)
+                                                                    .stroke(Color .black, lineWidth: 3))
                                                         }.accessibilityLabel("Row \(rI + 1), Column \(cI + 1): \(wordBank[rI][cI])")
+                                                    }
+                                                        
                                                     }
                                                 }.accessibilityLabel("Row \(rI+1)")
                                             }
@@ -96,6 +120,9 @@ struct ContentView: View {
                                 .frame(width: geometry.size.width * 0.70).frame(maxHeight: .infinity)
                                 .foregroundColor(.black)
                                 VStack {    //Student Controls
+                                    if currSection != 2 { } else {
+                                        if activeRow == 0 {}
+                                    }
                                     Button("Delete") {
                                         if !words.isEmpty {words.removeLast()}
                                     }.accessibilityLabel("Delete Word")
@@ -127,34 +154,69 @@ struct ContentView: View {
                             }
                         }.frame(width: geometry.size.width * 0.85)
                     } else {
+                        
                         ZStack {
-                            ScrollView (.vertical, showsIndicators: true) {
-                                VStack (alignment: .leading){
-                                    Text(//words.joined(separator: " "))
-                                        words.reduce("") {result, word in
-                                            if result.isEmpty {return word}
-                                            else if word == ".\n" {return result+word}
-                                            else {return result + " " + word}
-                                        })
-                                    .frame(maxWidth: .infinity, alignment: .leading)
-                                }.frame(maxWidth: .infinity, maxHeight: .infinity)
-                                    .contentShape(Rectangle())
-                            }.accessibilityLabel("Scroll Student Text")
-                            VStack {
-                                Button(action: {
-                                    fullScreen.toggle()
-                                }) {
-                                    Text("Full Screen")
-                                        .padding()
-                                        .multilineTextAlignment(.center)
-                                        .frame(maxWidth: geometry.size.width * 0.18)
-                                        .frame( height: geometry.size.height * 0.18)
-                                        .background(RoundedRectangle(cornerRadius: 10)
-                                            .stroke(Color .black, lineWidth: 3))
-                                        .foregroundColor(.black)
-                                }.accessibilityLabel("Open Student Word Bank")
-                                    .padding(.bottom, 16)
-                            }.frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomTrailing)
+                            if activeRow == 0 {
+                                ScrollView (.vertical, showsIndicators: true) {
+                                    VStack (alignment: .leading){
+                                        Text(//words.joined(separator: " "))
+                                            words.reduce("") {result, word in
+                                                if result.isEmpty {return word}
+                                                else if word == ".\n" {return result+word}
+                                                else {return result + " " + word}
+                                            })
+                                        .frame(maxWidth: .infinity, alignment: .leading)
+                                    }.frame(maxWidth: .infinity, maxHeight: .infinity)
+                                        .contentShape(Rectangle())
+                                }.accessibilityLabel("Scroll Student Text")
+                                    .background(Color(red: 190/255, green: 190/255, blue: 190/255))
+                                VStack {
+                                    Button(action: {
+                                        fullScreen.toggle()
+                                    }) {
+                                        Text("Full Screen")
+                                            .padding()
+                                            .multilineTextAlignment(.center)
+                                            .frame(maxWidth: geometry.size.width * 0.18)
+                                            .frame( height: geometry.size.height * 0.18)
+                                            .background(RoundedRectangle(cornerRadius: 10)
+                                                .stroke(Color .black, lineWidth: 3))
+                                            .foregroundColor(.black)
+                                    }.accessibilityLabel("Open Student Word Bank")
+                                        .padding(.bottom, 16)
+                                }.frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomTrailing)
+                            }
+                            else if activeRow == 1 {
+                                ScrollView (.vertical, showsIndicators: true) {
+                                    VStack (alignment: .leading){
+                                        Text(//words.joined(separator: " "))
+                                            words.reduce("") {result, word in
+                                                if result.isEmpty {return word}
+                                                else if word == ".\n" {return result+word}
+                                                else {return result + " " + word}
+                                            })
+                                        .frame(maxWidth: .infinity, alignment: .leading)
+                                    }.frame(maxWidth: .infinity, maxHeight: .infinity)
+                                        .contentShape(Rectangle())
+                                }.accessibilityLabel("Scroll Student Text")
+                                VStack {
+                                    Button(action: {
+                                        fullScreen.toggle()
+                                    }) {
+                                        Text("Full Screen")
+                                            .padding()
+                                            .multilineTextAlignment(.center)
+                                            .frame(maxWidth: geometry.size.width * 0.18)
+                                            .frame( height: geometry.size.height * 0.18)
+                                            .background(RoundedRectangle(cornerRadius: 10)
+                                                .stroke(Color .black, lineWidth: 3))
+                                            .foregroundColor(.black)
+                                    }.accessibilityLabel("Open Student Word Bank")
+                                        .padding(.bottom, 16)
+                                        .background(Color(red: 190/255, green: 190/255, blue: 190/255))
+                                }.frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomTrailing)
+                            }
+                            
                         }.accessibilityLabel("Student Text")
                             .padding()
                         
@@ -214,6 +276,111 @@ struct ContentView: View {
                 //.accessibilityLabel("Settings")
                 //.navigationBarBackButtonHidden(true)
             }.ignoresSafeArea()
+                .focusable()
+                .onKeyPress(.leftArrow) {
+                    if inSect {
+                        if fullScreen {
+                            if activeRow == 0
+                            {
+                                activeRow = 1
+                            } else if activeRow == 1 {
+                                activeRow = 0
+                            }
+                            return .handled
+                        }
+                        if inRow {
+                            if inCol {
+                                if activeCol == 0 {
+                                    activeCol = wordBank[activeRow].count - 1
+                                } else {
+                                    activeCol -= 1
+                                }
+                                return .handled
+                            }
+                            if activeRow == 0 {
+                                activeRow = wordBank.count - 1
+                            } else {
+                                activeRow -= 1
+                            }
+                            return .handled
+                        }
+                        if currSection == 0 {
+                            currSection = 2
+                        }
+                        else if currSection == 1 {
+                            currSection = 0
+                        } else if currSection == 2
+                        {
+                            currSection = 1
+                        }
+                    }
+                    return .handled
+                }
+                .onKeyPress(.rightArrow) {
+                    if inSect {
+                        if fullScreen {
+                            if activeRow == 0
+                            {
+                                activeRow = 1
+                            } else if activeRow == 1 {
+                                activeRow = 0
+                            }
+                            return .handled
+                        }
+                        if inRow {
+                            if inCol {
+                                if activeCol == wordBank[activeRow].count - 1 {
+                                    activeCol = 0
+                                } else {
+                                    activeCol += 1
+                                }
+                                return .handled
+                            }
+                            if activeRow == wordBank.count - 1 {
+                                activeRow = 0
+                            } else {
+                                activeRow += 1
+                            }
+                            return .handled
+                        }
+                        if currSection == 0 {
+                            currSection = 1
+                        }
+                        else if currSection == 1 {
+                            currSection = 2
+                        } else if currSection == 2
+                        {
+                            currSection = 0
+                        }
+                    }
+                    return .handled
+                }
+                .onKeyPress(.upArrow) {
+                    if inSect {
+                        if inRow {
+                            if inCol {
+                                inCol = false
+                                return .handled
+                            }
+                            inRow = false
+                            return .handled
+                        }
+                    }
+                    return .handled
+                }
+                .onKeyPress(.downArrow) {
+                    if inSect {
+                        if inRow {
+                            if inCol {
+                                //call button command
+                            }
+                            inRow = true
+                            return .handled
+                        }
+                        inRow = true
+                    }
+                    return .handled
+                }
         //}
     }
 }
