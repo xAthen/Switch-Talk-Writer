@@ -3,10 +3,72 @@
 //
 
 import SwiftUI
+import SwiftUI
+import Combine
+
+// MARK: - Saved files (model + storage)
+
+struct SavedFile: Identifiable, Codable, Equatable {
+    var id = UUID()
+    var name: String
+    var words: [String]
+    var wordBank: [[String]]
+    var modified = Date()
+}
+
+// Keeps the list of saved files and writes it to disk as JSON
+@MainActor
+final class FileStore: ObservableObject {
+    @Published private(set) var files: [SavedFile] = []
+
+    private let fileURL: URL
+
+    init() {
+        let base = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
+        let folder = base.appendingPathComponent("SwitchTalkWriter", isDirectory: true)
+        try? FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+        fileURL = folder.appendingPathComponent("files.json")
+        load()
+    }
+
+    // Adds a new file, or overwrites the one with the same id
+    func save(_ file: SavedFile) {
+        var updated = file
+        updated.modified = Date()
+        if let index = files.firstIndex(where: { $0.id == file.id }) {
+            files[index] = updated
+        } else {
+            files.append(updated)
+        }
+        persist()
+    }
+
+    func delete(_ file: SavedFile) {
+        files.removeAll { $0.id == file.id }
+        persist()
+    }
+
+    private func persist() {
+        do {
+            let data = try JSONEncoder().encode(files)
+            try data.write(to: fileURL, options: .atomic)
+        } catch {
+            print("Could not write files: \(error)")
+        }
+    }
+
+    private func load() {
+        guard let data = try? Data(contentsOf: fileURL),
+              let decoded = try? JSONDecoder().decode([SavedFile].self, from: data) else { return }
+        files = decoded
+    }
+}
 
 // MARK: - Home page
 
 struct HomeView: View {
+    @StateObject private var store = FileStore()
+
     var body: some View {
         NavigationStack {
             VStack {
@@ -34,6 +96,7 @@ struct HomeView: View {
                 Spacer()
             }
         }
+        .environmentObject(store)
     }
 }
 
@@ -59,27 +122,100 @@ struct HomeCircleLink<Destination: View>: View {
 // MARK: - Placeholder screens
 
 struct FilesView: View {
+    @EnvironmentObject private var store: FileStore
+    @State private var fileToDelete: SavedFile?
+
+    private var sortedFiles: [SavedFile] {
+        store.files.sorted { $0.modified > $1.modified }
+    }
+
+    private var showDeleteAlert: Binding<Bool> {
+        Binding(
+            get: { fileToDelete != nil },
+            set: { if !$0 { fileToDelete = nil } }
+        )
+    }
+
     var body: some View {
         VStack {
             HStack {
                 BackButton()
                 Spacer()
+                NavigationLink(destination: ContentView()) {
+                    Text("New File")
+                        .font(.system(size: 32, weight: .semibold))
+                        .padding()
+                        .background(RoundedRectangle(cornerRadius: 10).stroke(Color.primary, lineWidth: 3))
+                }
+                .buttonStyle(.plain)
             }
-            Spacer()
+
             Text("Files")
                 .font(.system(size: 60, weight: .bold, design: .rounded))
-            Spacer()
-            NavigationLink(destination: ContentView()) {
-                Text("New File")
-                    .font(.system(size: 32, weight: .semibold))
+
+            if store.files.isEmpty {
+                Spacer()
+                Text("No saved files yet")
+                    .font(.system(size: 32))
+                    .foregroundColor(.secondary)
+                Spacer()
+            } else {
+                ScrollView {
+                    VStack(spacing: 16) {
+                        ForEach(sortedFiles) { file in
+                            FileRow(file: file) {
+                                fileToDelete = file
+                            }
+                        }
+                    }
                     .padding()
-                    .background(RoundedRectangle(cornerRadius: 10).stroke(Color.primary, lineWidth: 3))
+                }
             }
-            .buttonStyle(.plain)
-            Spacer()
         }
         .padding()
         .navigationBarBackButtonHidden(true)
+        .alert("Delete file?", isPresented: showDeleteAlert, presenting: fileToDelete) { file in
+            Button("Delete", role: .destructive) {
+                store.delete(file)
+            }
+            Button("Cancel", role: .cancel) {}
+        } message: { file in
+            Text("\"\(file.name)\" will be permanently deleted.")
+        }
+    }
+}
+
+// One saved file: tap the name to open it, or tap Delete
+struct FileRow: View {
+    let file: SavedFile
+    let onDelete: () -> Void
+
+    var body: some View {
+        HStack(spacing: 16) {
+            NavigationLink(destination: ContentView(file: file)) {
+                HStack {
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text(file.name)
+                            .font(.system(size: 32, weight: .semibold))
+                        Text(file.modified.formatted(date: .abbreviated, time: .shortened))
+                            .font(.system(size: 20))
+                            .foregroundColor(.secondary)
+                    }
+                    Spacer()
+                }
+                .padding()
+                .contentShape(Rectangle())
+                .background(RoundedRectangle(cornerRadius: 10).stroke(Color.primary, lineWidth: 3))
+            }
+            .buttonStyle(.plain)
+
+            Button("Delete") {
+                onDelete()
+            }
+            .font(.system(size: 28))
+            .padding()
+            .background(RoundedRectangle(cornerRadius: 10).stroke(Color.primary, lineWidth: 3))
+        }
     }
 }
 

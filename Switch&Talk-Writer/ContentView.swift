@@ -10,6 +10,12 @@ import SwiftUI
 struct ContentView: View {
     
     @Environment(\.dismiss) private var dismiss
+    @EnvironmentObject private var store: FileStore
+    @State private var currentID = UUID()
+    @State private var fileName = ""
+    @State private var isSaved = false
+    @State private var showNamePrompt = false
+    @State private var showSavedMessage = false
     @State private var isEditable: Bool  = false
     @State private var fullScreen: Bool = false
     @State private var bWidth: CGFloat = 100
@@ -25,6 +31,27 @@ struct ContentView: View {
         ["Papa", "Quebec", "Romeo", "Sierra", "Tango"],
         ["Uniform", "Victor", "Whiskey", "X-ray", ".\n"]
     ]
+    
+    // Pass a saved file to open it; pass nothing for a new file
+    init(file: SavedFile? = nil) {
+        if let file {
+            _currentID = State(initialValue: file.id)
+            _fileName = State(initialValue: file.name)
+            _words = State(initialValue: file.words)
+            _wordBank = State(initialValue: file.wordBank)
+            _isSaved = State(initialValue: true)
+        }
+    }
+    
+    private func saveFile() {
+        let trimmed = fileName.trimmingCharacters(in: .whitespacesAndNewlines)
+        let name = trimmed.isEmpty ? "Untitled" : trimmed
+        store.save(SavedFile(id: currentID, name: name, words: words, wordBank: wordBank))
+        fileName = name
+        isSaved = true
+        showSavedMessage = true
+    }
+    
     var body: some View {
         //KeyboardNavView {
             GeometryReader { geometry in
@@ -178,7 +205,11 @@ struct ContentView: View {
                             .frame( height: geometry.size.height * 0.18)
                             .background(Color .gray).cornerRadius(10).foregroundColor(.white)
                         Button("Save") {
-                            /*@START_MENU_TOKEN@*//*@PLACEHOLDER=Action@*/ /*@END_MENU_TOKEN@*/
+                            if isSaved {
+                                saveFile()
+                            } else {
+                                showNamePrompt = true
+                            }
                         }.accessibilityLabel("Save")
                             .padding(5)
                             .multilineTextAlignment(.center)
@@ -214,6 +245,16 @@ struct ContentView: View {
                 //.accessibilityLabel("Settings")
                 //.navigationBarBackButtonHidden(true)
             }.ignoresSafeArea()
+            .alert("Name your file", isPresented: $showNamePrompt) {
+                TextField("File name", text: $fileName)
+                Button("Save") { saveFile() }
+                Button("Cancel", role: .cancel) {}
+            }
+            .alert("Saved", isPresented: $showSavedMessage) {
+                Button("OK", role: .cancel) {}
+            } message: {
+                Text("\"\(fileName)\" was saved to Files.")
+            }
         //}
     }
 }
@@ -248,5 +289,6 @@ struct ContentView_Previews:
     PreviewProvider {
     static var previews: some View {
         ContentView()
+            .environmentObject(FileStore())
     }
 }
