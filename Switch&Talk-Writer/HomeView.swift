@@ -3,10 +3,10 @@
 //
 
 import SwiftUI
-import SwiftUI
 import Combine
 
 // MARK: - Saved files (model + storage)
+
 
 struct SavedFile: Identifiable, Codable, Equatable {
     var id = UUID()
@@ -14,6 +14,32 @@ struct SavedFile: Identifiable, Codable, Equatable {
     var words: [String]
     var wordBank: [[String]]
     var modified = Date()
+
+    // Same joining rules as the student text box
+    var exportText: String {
+        words.reduce("") { result, word in
+            if result.isEmpty { return word }
+            else if word == ".\n" { return result + word }
+            else { return result + " " + word }
+        }
+    }
+
+    // Writes a .txt file to the temp folder and returns its URL
+    func makeTextFileURL() -> URL? {
+        let safeName = name
+            .components(separatedBy: CharacterSet(charactersIn: "/\\:?%*|\"<>"))
+            .joined(separator: "-")
+        let url = FileManager.default.temporaryDirectory
+            .appendingPathComponent(safeName.isEmpty ? "Untitled" : safeName)
+            .appendingPathExtension("txt")
+        do {
+            try exportText.write(to: url, atomically: true, encoding: .utf8)
+            return url
+        } catch {
+            print("Could not write export file: \(error)")
+            return nil
+        }
+    }
 }
 
 // Keeps the list of saved files and writes it to disk as JSON
@@ -208,6 +234,18 @@ struct FileRow: View {
                 .background(RoundedRectangle(cornerRadius: 10).stroke(Color.primary, lineWidth: 3))
             }
             .buttonStyle(.plain)
+            
+            // Export as .txt
+                        if let url = file.makeTextFileURL() {
+                            ShareLink(item: url) {
+                                Text("Export")
+                                    .font(.system(size: 28))
+                                    .padding()
+                                    .background(RoundedRectangle(cornerRadius: 10).stroke(Color.primary, lineWidth: 3))
+                            }
+                            .buttonStyle(.plain)
+                        }
+
 
             Button("Delete") {
                 onDelete()
